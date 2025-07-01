@@ -3,7 +3,6 @@ import json
 import sys
 import subprocess
 import os
-import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -19,68 +18,76 @@ if env_file.exists():
                     os.environ[key] = value
 
 def send_mac_notification(title, message, sound_file=None):
-    """Send macOS notification with sound"""
-    sound_file = sound_file or str(Path(__file__).parent / "notif.mp3")
+    """Send macOS notification with icon"""
+    print(f"Sending notification: {title} - {message}")
     
-    script = f'''
-    tell application "System Events"
-        display notification "{message}" with title "{title}"
-    end tell
-    '''
-    subprocess.run(['osascript', '-e', script])
+    # Get icon path relative to script
+    script_dir = Path(__file__).parent
+    icon_path = script_dir / "icon.png"
     
-    if os.path.exists(sound_file):
-        subprocess.run(['afplay', sound_file])
-
-def send_phone_notification(title, message, pushover_token=None, pushover_user=None):
-    """Send notification to phone via Pushover"""
-    if not pushover_token or not pushover_user:
-        return
-    
-    data = {
-        "token": pushover_token,
-        "user": pushover_user,
-        "title": title,
-        "message": message,
-        "sound": "cosmic",
-        "priority": 1
-    }
-    
+    # Use terminal-notifier if available for better icon support
     try:
-        requests.post("https://api.pushover.net/1/messages.json", data=data)
-    except:
-        pass
+        subprocess.run([
+            'terminal-notifier',
+            '-title', title,
+            '-message', message,
+            '-contentImage', str(icon_path)
+        ], check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback to osascript
+        script = f'''
+        tell application "System Events"
+            display notification "{message}" with title "{title}"
+        end tell
+        '''
+        subprocess.run(['osascript', '-e', script])
 
 def main():
     # Read input from Claude Code
     input_data = json.loads(sys.stdin.read())
+    print(json.dumps(input_data))
     
     # Check if stop_hook_active to prevent loops
     if input_data.get('stop_hook_active'):
         print(json.dumps({"decision": "approve"}))
         return
     
-    # Determine paths to bundled sound files relative to this script
-    script_dir = Path(__file__).parent
-    default_sound = script_dir / "notif.mp3"
-    gilfoyle_sound = script_dir / "You Suffer (Napalm Death).mp3"
-    
-    # Check if Gilfoyle mode is enabled
-    if os.getenv('GILFOYLE_MODE', '').lower() in ('true'):
-        sound_file = os.getenv('CC_SOUND_FILE', str(gilfoyle_sound))
-    else:
-        sound_file = os.getenv('CC_SOUND_FILE', str(default_sound))
-    
-    pushover_token = os.getenv('PUSHOVER_TOKEN')
-    pushover_user = os.getenv('PUSHOVER_USER')
-    
     # Send notifications
     time_str = datetime.now().strftime('%H:%M:%S')
     title = "Claude Code Finished"
-    message = f"Claude completed response at {time_str}"
     
-    send_mac_notification(title, message, sound_file)
-    send_phone_notification(title, message, pushover_token, pushover_user)
+    # Read transcript content if available
+    transcript_content = ""
+    if 'transcript_path' in input_data:
+        try:
+            with open(input_data['transcript_path'], 'r') as f:
+                lines = f.readlines()
+                
+                # Get the last line (most recent entry)
+                if lines:
+                    last_line = lines[-1].strip()
+                    try:
+                        transcript_json = json.loads(last_line)
+                        if 'message' in transcript_json and 'content' in transcript_json['message']:
+                            for item in transcript_json['message']['content']:
+                                if item.get('type') == 'text':
+                                    transcript_content = item.get('text', '')
+                                    break
+                        if not transcript_content:
+                            transcript_content = "No text content found"
+                    except:
+                        transcript_content = "Failed to parse transcript"
+                else:
+                    transcript_content = "No transcript data"
+                
+                
+                # Limit to last 200 characters for notification
+                if len(transcript_content) > 200:
+                    transcript_content = "..." + transcript_content[-200:]
+        except:
+            transcript_content = f"Transcript at {input_data['transcript_path']}"
+    
+    send_mac_notification(title, transcript_content)
     
     # Let Claude continue
     print(json.dumps({"decision": "approve"}))

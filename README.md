@@ -1,11 +1,13 @@
 # Claude Code Ping 🔔
 
-Get notified with a sound when Claude Code finishes responding. Perfect for
+Get rich notifications when Claude Code finishes responding. Perfect for
 long-running tasks.
+
+![Claude Ping Example](claude-ping-example.png)
 
 Now that Claude Code has
 [hooks](https://docs.anthropic.com/en/docs/claude-code/hooks), I decided to make
-a simple script that will notify me when Claude Code finishes responding.
+a notification system that shows Claude's actual response content with a custom icon.
 
 ## Quick Start
 
@@ -33,57 +35,37 @@ uv sync  # or: pip install -r requirements.txt
     ]
   }
 }
-
-# Set GILFOYLE_MODE=true if you want the best experience
-"GILFOYLE_MODE=true uv run python /path/to/claude-ping/claude_ping.py"
 ````
 
-That's it! You'll now hear a notification sound when Claude finishes.
+That's it! You'll now get rich notifications showing Claude's actual response content.
 
 ## Features
 
-- 🔊 Custom notification sound
+- 🖼️ Rich notifications with custom icon showing Claude's response content
 - 🖥️ macOS native notifications with timestamp
-- 📱 Optional mobile notifications via Pushover
+- 📝 Displays actual message text (not just "task complete")
 - 🎯 Zero configuration required
 
-## Customization
+## How It Works
 
-- **Custom sound**: Set `CC_SOUND_FILE` environment variable
-- **Gilfoyle mode**: Set `GILFOYLE_MODE=true` to use "You Suffer.mp3" (the
-  shortest song ever)
-- **Notification text**: Edit `title` and `message` in `claude_ping.py`
-
-### Gilfoyle Mode
-
-For the
-[true Silicon Valley experience](https://www.youtube.com/watch?v=uS1KcjkWdoU):
-
-```bash
-export GILFOYLE_MODE=true
-```
-
-This switches the notification sound to "You Suffer.mp3". Make sure to add this
-file to the project directory.
-
-## Pushover Setup (Optional)
-
-For mobile notifications:
-
-1. Create a [Pushover](https://pushover.net/) account
-2. Create an application in Pushover to get your API token
-3. Copy `.env.example` to `.env` and fill in your credentials:
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Pushover credentials
-   ```
+The script automatically:
+1. Parses Claude Code's transcript file (JSONL format)
+2. Extracts the text content from the last assistant message
+3. Displays it in a macOS notification with a custom icon
 
 ## Requirements
 
-- macOS (uses `afplay` and AppleScript)
+- macOS
 - Python 3.8+
 - Claude Code CLI
+- `terminal-notifier` (install with `brew install terminal-notifier`) for icon support
+
+## Customization
+
+The notification system is designed to work out of the box, but you can customize:
+
+- **Icon**: Replace `icon.png` with your own image
+- **Message format**: Edit the notification message format in `claude_ping.py`
 
 ## License
 
